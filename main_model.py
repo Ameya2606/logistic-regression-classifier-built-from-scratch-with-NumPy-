@@ -3,6 +3,8 @@ import numpy as np
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import matplotlib.pyplot as plt
 
 class LogisticRegression:
     """
@@ -14,6 +16,8 @@ class LogisticRegression:
         self.weights = None
         self.bias = None
         self.patience = patience # For early stopping
+        self.train_costs = []
+        self.val_costs = []
 
     def _sigmoid(self, z):
         """Sigmoid activation function."""
@@ -57,11 +61,13 @@ class LogisticRegression:
                 # Add a small epsilon to prevent log(0) which results in NaN
                 epsilon = 1e-9
                 train_cost = -np.mean(y * np.log(y_hat + epsilon) + (1 - y) * np.log(1 - y_hat + epsilon))
+                self.train_costs.append(train_cost)
 
                 # Calculate validation cost
                 val_z = np.dot(X_val, self.weights) + self.bias
                 val_y_hat = self._sigmoid(val_z)
                 val_cost = -np.mean(y_val * np.log(val_y_hat + epsilon) + (1 - y_val) * np.log(1 - val_y_hat + epsilon))
+                self.val_costs.append(val_cost)
 
                 print(f"Epoch {epoch + 1}/{self.epochs} | Train Cost: {train_cost:.4f} | Val Cost: {val_cost:.4f}")
 
@@ -129,26 +135,48 @@ def main():
 
     # --- Step 4: Train the model ---
     print("Training the Logistic Regression model...")
-    # We can still set a high epoch count, but early stopping will likely halt it much sooner.
     model = LogisticRegression(learning_rate=0.01, epochs=5000, patience=20)
-    
-    # For simplicity, we use the test set as the validation set for early stopping.
-    # In a more formal setup, you might create a separate validation split from the training data.
     model.fit(X_train_scaled, y_train_np, X_test_scaled, y_test_np)
 
     # --- Step 5: Evaluate the model ---
     print("\n--- Final Model Evaluation ---")
-    # Predict on both training and test sets to check for overfitting
     y_pred_train = model.predict(X_train_scaled)
     y_pred_test = model.predict(X_test_scaled)
 
-    # Calculate and print accuracy for both sets
-    train_accuracy = np.mean(y_pred_train == y_train_np)
-    test_accuracy = np.mean(y_pred_test == y_test_np)
+    print(f"Training Set Accuracy: {accuracy_score(y_train_np, y_pred_train) * 100:.2f}%")
+    print(f"Test Set Accuracy:     {accuracy_score(y_test_np, y_pred_test) * 100:.2f}%")
+    
+    print("\n--- Additional Metrics ---")
+    print(f"Training Set Precision: {precision_score(y_train_np, y_pred_train):.2f}")
+    print(f"Test Set Precision:     {precision_score(y_test_np, y_pred_test):.2f}")
 
-    print(f"Training Set Accuracy: {train_accuracy * 100:.2f}%")
-    print(f"Test Set Accuracy:     {test_accuracy * 100:.2f}%")
+    print(f"Training Set Recall:    {recall_score(y_train_np, y_pred_train):.2f}")
+    print(f"Test Set Recall:        {recall_score(y_test_np, y_pred_test):.2f}")
 
+    print(f"Training Set F1-Score:  {f1_score(y_train_np, y_pred_train):.2f}")
+    print(f"Test Set F1-Score:      {f1_score(y_test_np, y_pred_test):.2f}")
+
+    # --- Step 6: Visualize Training and Validation Cost ---
+    if model.train_costs:
+        print("\n--- Visualizing Cost Function ---")
+        plt.figure(figsize=(10, 6))
+        epochs_plotted = range(100, len(model.train_costs) * 100 + 1, 100)
+        plt.plot(epochs_plotted, model.train_costs, label='Training Cost', color='blue')
+        plt.plot(epochs_plotted, model.val_costs, label='Validation Cost', color='red')
+        plt.title('Training and Validation Cost Over Epochs')
+        plt.xlabel('Epochs')
+        plt.ylabel('Cost (Cross-Entropy Loss)')
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+    # --- Step 7: Demonstrate Hyperparameter Differences ---
+    print("\n--- Demonstrating Hyperparameter Impact ---")
+    print("Training with a higher learning rate (0.1) and lower patience (5)...")
+    model_fast = LogisticRegression(learning_rate=0.1, epochs=5000, patience=5)
+    model_fast.fit(X_train_scaled, y_train_np, X_test_scaled, y_test_np)
+    y_pred_test_fast = model_fast.predict(X_test_scaled)
+    print(f"Test Accuracy with lr=0.1, patience=5: {accuracy_score(y_test_np, y_pred_test_fast) * 100:.2f}%")
 
 if __name__ == "__main__":
     main()
